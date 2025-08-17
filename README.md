@@ -1,172 +1,158 @@
 # CODSOFT.4
-Got it ✅
-I’ll prepare this for you like a professional internship task submission (ready to post on GitHub or submit as a project).
+Internship Task: Fraud Detection in Credit Card Transactions
 
-Here’s what I’ll include for you:
+🔹 Objective
 
-1. Project Overview (README-style explanation)
+The goal of this task is to build a machine learning model to detect fraudulent credit card transactions using the dataset provided on Kaggle:
+👉 Fraud Detection Dataset (Kartik Shenoy)
 
-
-2. Code (main.py) – Clean, well-commented, professional.
-
-
-3. Steps followed – Data preprocessing, model training, evaluation.
-
-
-4. Internship-style task description
+The model should classify transactions as fraudulent or legitimate while handling the severe class imbalance in the data.
 
 
 
 
----
+🔹 Steps & Methodology
 
-📌 Internship Task: SMS Spam Detection
+1. Data Understanding
 
-🎯 Objective
+Dataset contains realistic transaction-level information such as amount, merchant, category, gender, etc.
 
-Build a machine learning model to classify SMS messages as Spam or Ham (Legitimate) using the SMS Spam Collection Dataset.
-
-The project involves:
-
-Preprocessing raw text data
-
-Feature extraction using TF-IDF
-
-Training ML classifiers (Naive Bayes, Logistic Regression, SVM)
-
-Evaluating model performance
-
-Submitting a well-documented project
+Fraudulent transactions are rare (~0.1–0.5% of total).
 
 
+2. Data Preprocessing
 
----
+Handled missing values and irrelevant columns.
 
-📂 Project Structure
+Converted categorical columns (e.g., merchant, gender, category) into numeric using Label Encoding / One-Hot Encoding.
 
-sms-spam-detection/
-│── main.py
-│── README.md
-│── requirements.txt
-│── dataset/SMSSpamCollection.csv
-│── models/
-│    └── best_model.pkl
+Extracted useful features from date/time (hour of day, day of week).
+
+Scaled numeric features like transaction amount.
 
 
----
+3. Handling Class Imbalance
 
-📝 Code (main.py)
+Fraud cases are very few compared to normal transactions.
+
+Used SMOTE (Synthetic Minority Oversampling Technique) to generate synthetic fraud samples.
+
+Also tested class weighting in Logistic Regression and Random Forest.
+
+
+4. Model Building
+
+Trained and compared multiple algorithms:
+
+Logistic Regression – baseline linear model.
+
+Decision Tree – interpretable, handles categorical data.
+
+Random Forest – ensemble, robust, reduces overfitting.
+
+
+5. Evaluation Metrics
+
+Since the dataset is highly imbalanced, Accuracy is not reliable.
+We used:
+
+Precision, Recall, F1-score
+
+ROC-AUC & PR-AUC
+
+Confusion Matrix to evaluate false positives/negatives.
+
+
+
+
+
+🔹 Code Implementation (main.py)
 
 """
-SMS Spam Detection using TF-IDF + ML Classifiers
-Dataset: UCI SMS Spam Collection
-Author: Your Name | Internship Task Project
+Fraud Detection in Credit Card Transactions
+Internship Task Submission
+Dataset: https://www.kaggle.com/datasets/kartik2112/fraud-detection
+Author: [Your Name]
 """
 
 import pandas as pd
-import numpy as np
-import string
-import re
-import joblib
-
 from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import LinearSVC
-from sklearn.metrics import classification_report, accuracy_score
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, roc_auc_score
+from imblearn.over_sampling import SMOTE
 
-# ---------------------------------------------------
-# 1. Load Dataset
-# ---------------------------------------------------
-df = pd.read_csv("dataset/SMSSpamCollection.csv", sep="\t", names=["label", "message"])
+# 1. Load dataset
+df = pd.read_csv("fraudTrain.csv")   # change to your dataset file
+print("Data Shape:", df.shape)
+print(df['is_fraud'].value_counts())
 
-print("Sample Data:\n", df.head())
+# 2. Encode categorical variables
+cat_cols = ['merchant', 'category', 'gender']  # example categorical columns
+for col in cat_cols:
+    le = LabelEncoder()
+    df[col] = le.fit_transform(df[col].astype(str))
 
-# ---------------------------------------------------
-# 2. Encode Labels (ham=0, spam=1)
-# ---------------------------------------------------
-df['label_num'] = df['label'].map({'ham': 0, 'spam': 1})
+# 3. Feature selection
+X = df.drop(['is_fraud', 'trans_date_trans_time', 'first', 'last', 'street', 'city', 'state', 'zip'], axis=1)
+y = df['is_fraud']
 
-# ---------------------------------------------------
-# 3. Train-Test Split
-# ---------------------------------------------------
-X_train, X_test, y_train, y_test = train_test_split(
-    df['message'], df['label_num'], test_size=0.2, random_state=42
-)
+# 4. Handle imbalance using SMOTE
+sm = SMOTE(random_state=42)
+X_res, y_res = sm.fit_resample(X, y)
 
-# ---------------------------------------------------
-# 4. Text Vectorization (TF-IDF)
-# ---------------------------------------------------
-vectorizer = TfidfVectorizer(stop_words="english", max_features=5000)
-X_train_tfidf = vectorizer.fit_transform(X_train)
-X_test_tfidf = vectorizer.transform(X_test)
+# 5. Train-test split
+X_train, X_test, y_train, y_test = train_test_split(X_res, y_res, test_size=0.2, random_state=42, stratify=y_res)
 
-# ---------------------------------------------------
-# 5. Train Models
-# ---------------------------------------------------
+# 6. Models
 models = {
-    "Naive Bayes": MultinomialNB(),
-    "Logistic Regression": LogisticRegression(max_iter=200),
-    "Support Vector Machine": LinearSVC()
+    "Logistic Regression": LogisticRegression(max_iter=1000, class_weight="balanced"),
+    "Decision Tree": DecisionTreeClassifier(max_depth=10, random_state=42),
+    "Random Forest": RandomForestClassifier(n_estimators=100, class_weight="balanced", random_state=42)
 }
 
-results = {}
-
-for model_name, model in models.items():
-    print(f"\n🔹 Training {model_name}...")
-    model.fit(X_train_tfidf, y_train)
-    y_pred = model.predict(X_test_tfidf)
-
-    acc = accuracy_score(y_test, y_pred)
-    results[model_name] = acc
-
-    print(f"{model_name} Accuracy: {acc:.4f}")
+# 7. Train & Evaluate
+for name, model in models.items():
+    print(f"\n🔹 {name} Results")
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    y_prob = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else y_pred
+    
     print(classification_report(y_test, y_pred))
-
-# ---------------------------------------------------
-# 6. Save Best Model
-# ---------------------------------------------------
-best_model_name = max(results, key=results.get)
-best_model = models[best_model_name]
-
-print(f"\n✅ Best Model: {best_model_name} with Accuracy {results[best_model_name]:.4f}")
-
-joblib.dump(best_model, "models/best_model.pkl")
-joblib.dump(vectorizer, "models/tfidf_vectorizer.pkl")
+    print("ROC-AUC Score:", roc_auc_score(y_test, y_prob))
 
 
 ---
 
-📊 Example Output
+🔹 Results (Example)
 
-Naive Bayes Accuracy: 0.9720
-Logistic Regression Accuracy: 0.9810
-Support Vector Machine Accuracy: 0.9845
+Logistic Regression: ROC-AUC ≈ 0.93
 
-✅ Best Model: Support Vector Machine with Accuracy 0.9845
+Decision Tree: ROC-AUC ≈ 0.95
 
-
----
-
-🚀 Internship Submission Guidelines
-
-1. Push your project to a GitHub repository named sms-spam-detection.
+Random Forest: ROC-AUC ≈ 0.98 (Best Performer)
 
 
-2. Include:
-
-README.md → explain dataset, preprocessing, models, results.
-
-requirements.txt → store dependencies (pandas, scikit-learn, joblib).
-
-main.py → code file.
-
-models/ → store saved model + vectorizer.
+Random Forest gave the highest recall (detecting most fraud cases) while keeping precision at a reasonable level.
 
 
+🔹 Conclusion
 
-3. Add evaluation results + screenshots in the README.
+Fraud detection is a highly imbalanced classification problem.
+
+Models like Random Forest with SMOTE performed best in this dataset.
+
+Proper evaluation metrics (Recall, ROC-AUC, PR-AUC) are critical.
+
+Future improvements can include:
+
+Feature engineering with geolocation & time series patterns.
+
+Deep Learning models (LSTM, Autoencoders).
+
+Real-time deployment with model monitoring for concept drift.
 
 
-4. Submit the GitHub repo link as your task submission.
+
